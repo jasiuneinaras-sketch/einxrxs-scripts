@@ -1,357 +1,339 @@
---// Einxrxs Mobile Exploit Base 2026 - ULTRA DARK TOUCH REDUX
---// Features: Neon draggable GUI, 4K-ready scaling, joystick fly + noclip + speedhack + godmode + teleport + infinite jump + kill aura + item grab + esp boxes + tracers + chams + fullbright + speed slider + fly height + phase through walls + server hop + rejoin + anti-kick + more
+-- Einxrxs-scripts! Mobile-Only Exploit for Steal a BRAINROT
+-- Features: Instant Steal Nearest (fires ProximityPrompts), Base Tween (to nearest player), Noclip, Speed, Inf Jump
+-- Smooth, clean, draggable GUI with animations - 10x better!
+
+if not game:GetService("UserInputService").TouchEnabled then
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Einxrxs-scripts!";
+        Text = "Mobile only! Exiting.";
+        Duration = 3
+    })
+    return
+end
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local lp = Players.LocalPlayer
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "Einxrxs-scripts!"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
---// ──────────────────────────────────────────────────────────
---// SETTINGS + TOGGLES
---// ──────────────────────────────────────────────────────────
-
-local cfg = {
-    Fly = false,
-    FlySpeed = 80,
-    FlyHeight = 0,
-    Noclip = false,
-    Godmode = false,
-    InfiniteJump = false,
-    SpeedHack = 50,
-    KillAura = false,
-    KillAuraRange = 18,
-    ESP_Boxes = false,
-    ESP_Tracers = false,
-    Chams = false,
-    Fullbright = false,
-    NoClipPhase = false,
-    AntiKick = true,
-    ItemESP = false
+-- Toggle Button (small floating)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 60, 0, 60)
+ToggleBtn.Position = UDim2.new(1, -70, 1, -70)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ToggleBtn.Text = "🧠"
+ToggleBtn.TextColor3 = Color3.new(1,1,1)
+ToggleBtn.TextScaled = true
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Parent = ScreenGui
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = ToggleBtn
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(100, 200, 255)
+ToggleStroke.Thickness = 2
+ToggleStroke.Parent = ToggleBtn
+local ToggleGradient = Instance.new("UIGradient")
+ToggleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 40))
 }
+ToggleGradient.Rotation = 45
+ToggleGradient.Parent = ToggleBtn
 
---// ──────────────────────────────────────────────────────────
---// UTILITY FUNCTIONS
---// ──────────────────────────────────────────────────────────
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+local FrameCorner = Instance.new("UICorner")
+FrameCorner.CornerRadius = UDim.new(0, 16)
+FrameCorner.Parent = MainFrame
+local FrameStroke = Instance.new("UIStroke")
+FrameStroke.Color = Color3.fromRGB(100, 150, 255)
+FrameStroke.Thickness = 2
+FrameStroke.Parent = MainFrame
+local FrameGradient = Instance.new("UIGradient")
+FrameGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 60)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 25, 45)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 35))
+}
+FrameGradient.Rotation = 135
+FrameGradient.Parent = MainFrame
 
-local function getRoot() return lp.Character and (lp.Character:FindFirstChild("HumanoidRootPart") or lp.Character:FindFirstChild("Torso") or lp.Character:FindFirstChild("UpperTorso")) end
-local function getHumanoid() return lp.Character and lp.Character:FindFirstChildWhichIsA("Humanoid") end
+-- Title Bar (draggable)
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 50)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+TitleBar.Parent = MainFrame
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 16)
+TitleCorner.Parent = TitleBar
+local TitleGradient = Instance.new("UIGradient")
+TitleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 70, 100)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 45, 70))
+}
+TitleGradient.Parent = TitleBar
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Einxrxs-scripts!"
+TitleLabel.TextColor3 = Color3.new(1,1,1)
+TitleLabel.TextScaled = true
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = TitleBar
 
-local flyBV, flyBG, flyAlign
-local function toggleFly()
-    cfg.Fly = not cfg.Fly
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
+CloseBtn.Position = UDim2.new(1, -45, 0.5, -20)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.TextScaled = true
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TitleBar
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(1, 0)
+CloseCorner.Parent = CloseBtn
+
+-- ScrollingFrame for buttons
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, -20, 1, -70)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 60)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 150, 255)
+ScrollFrame.Parent = MainFrame
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = ScrollFrame
+
+-- Draggable
+local dragging = false
+local dragStart = nil
+local startPos = nil
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateInput(input)
+    end
+end)
+
+-- Toggle MainFrame
+local openTween = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local closeTween = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+ToggleBtn.Activated:Connect(function()
+    if MainFrame.Visible then
+        TweenService:Create(MainFrame, closeTween, {Size = UDim2.new(0, 0, 0, 0)}):Play()
+        wait(0.2)
+        MainFrame.Visible = false
+        MainFrame.Size = UDim2.new(0, 350, 0, 400)
+    else
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, openTween, {Size = UDim2.new(0, 350, 0, 400)}):Play()
+    end
+end)
+CloseBtn.Activated:Connect(function()
+    TweenService:Create(MainFrame, closeTween, {Size = UDim2.new(0, 0, 0, 0)}):Play()
+    wait(0.2)
+    MainFrame.Visible = false
+    MainFrame.Size = UDim2.new(0, 350, 0, 400)
+end)
+
+-- States
+local noclip = false
+local speedEnabled = false
+local infJump = false
+
+-- Update CanvasSize
+local function updateCanvas()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
+end
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+
+-- Create Button Function
+local function createButton(text, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0.9, 0, 0, 55)
+    Btn.BackgroundColor3 = Color3.fromRGB(45, 50, 70)
+    Btn.Text = text
+    Btn.TextColor3 = Color3.new(1,1,1)
+    Btn.TextScaled = true
+    Btn.Font = Enum.Font.Gotham
+    Btn.LayoutOrder = UIListLayout.AbsoluteContentSize.Y / 60
+    Btn.Parent = ScrollFrame
+    
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 12)
+    BtnCorner.Parent = Btn
+    
+    local BtnStroke = Instance.new("UIStroke")
+    BtnStroke.Color = Color3.fromRGB(120, 170, 255)
+    BtnStroke.Thickness = 1.5
+    BtnStroke.Parent = Btn
+    
+    local BtnGradient = Instance.new("UIGradient")
+    BtnGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(65, 75, 105)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(45, 50, 70))
+    }
+    BtnGradient.Parent = Btn
+    
+    -- Press Animation
+    local pressInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad)
+    local releaseInfo = TweenInfo.new(0.2, Enum.EasingStyle.Back)
+    Btn.Activated:Connect(function()
+        local press = TweenService:Create(Btn, pressInfo, {Size = UDim2.new(0.85, 0, 0, 48)})
+        press:Play()
+        press.Completed:Wait()
+        local release = TweenService:Create(Btn, releaseInfo, {Size = Btn.Size})
+        release:Play()
+        callback()
+    end)
+    
+    updateCanvas()
+    return Btn
+end
+
+-- Functions
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local function getRoot()
+    return Character:FindFirstChild("HumanoidRootPart")
+end
+
+local noclipConn
+createButton("🛡️ Toggle Noclip", function()
+    noclip = not noclip
+    if noclipConn then noclipConn:Disconnect() end
+    if noclip then
+        noclipConn = RunService.Stepped:Connect(function()
+            if Character then
+                for _, part in Character:GetDescendants() do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end)
+    end
+end)
+
+local speedConn
+createButton("⚡ Toggle Speed (80)", function()
+    speedEnabled = not speedEnabled
+    local humanoid = Character:FindFirstChild("Humanoid")
+    if speedEnabled then
+        speedConn = humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+            humanoid.WalkSpeed = 80
+        end)
+        humanoid.WalkSpeed = 80
+    else
+        if speedConn then speedConn:Disconnect() end
+        humanoid.WalkSpeed = 16
+    end
+end)
+
+local jumpConn
+createButton("🦘 Infinite Jump", function()
+    infJump = not infJump
+    if infJump then
+        jumpConn = UserInputService.JumpRequest:Connect(function()
+            local humanoid = Character:FindFirstChild("Humanoid")
+            if humanoid then humanoid:ChangeState("Jumping") end
+        end)
+    else
+        if jumpConn then jumpConn:Disconnect() end
+    end
+end)
+
+-- Instant Steal
+createButton("🚀 Instant Steal Nearest", function()
     local root = getRoot()
     if not root then return end
-
-    if cfg.Fly then
-        flyBV = Instance.new("BodyVelocity", root) flyBV.MaxForce = Vector3.new(1e9,1e9,1e9) flyBV.Velocity = Vector3.zero
-        flyBG = Instance.new("BodyGyro", root)   flyBG.MaxTorque = Vector3.new(1e9,1e9,1e9)   flyBG.CFrame = root.CFrame
-        flyAlign = Instance.new("AlignPosition", root) flyAlign.MaxForce = 1e9 flyAlign.Responsiveness = 200 flyAlign.Position = root.Position + Vector3.new(0,cfg.FlyHeight,0)
-    else
-        for _,v in {flyBV,flyBG,flyAlign} do if v then v:Destroy() end end
-        flyBV,flyBG,flyAlign = nil,nil,nil
-    end
-end
-
-local function updateFly()
-    if not cfg.Fly then return end
-    local root = getRoot() if not root then return end
-    local cam = workspace.CurrentCamera
-    local dir = Vector3.zero
-
-    if isMobile then
-        dir = cam.CFrame.LookVector * lp.Character.Humanoid.MoveDirection.Magnitude
-    else
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
-    end
-
-    flyBV.Velocity = dir * cfg.FlySpeed
-    flyBG.CFrame = cam.CFrame
-    if flyAlign then flyAlign.Position = root.Position + Vector3.new(0,cfg.FlyHeight,0) end
-end
-
---// Kill Aura loop
-RunService.Heartbeat:Connect(function()
-    if not cfg.KillAura then return end
-    local root = getRoot() if not root then return end
-    for _,p in Players:GetPlayers() do
-        if p ~= lp and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-            local dist = (p.Character.HumanoidRootPart.Position - root.Position).Magnitude
-            if dist <= cfg.KillAuraRange then
-                p.Character.Humanoid.Health = 0
+    local nearestPrompt, minDist = nil, math.huge
+    for _, obj in workspace:GetDescendants() do
+        if obj:IsA("ProximityPrompt") and obj.ActionText:lower():find("steal") then
+            local model = obj.Parent
+            if model ~= Character and model.PrimaryPart then
+                local dist = (root.Position - model.PrimaryPart.Position).Magnitude
+                if dist < minDist and dist < 100 then
+                    minDist = dist
+                    nearestPrompt = obj
+                end
             end
         end
     end
-end)
-
---// ESP + Chams + Tracers
-local espCons = {}
-local function createESP(plr)
-    if plr == lp then return end
-    local function onChar(char)
-        local box = Instance.new("BoxHandleAdornment", char)
-        box.Name = "ESPBox"
-        box.Adornee = char:WaitForChild("HumanoidRootPart")
-        box.Size = Vector3.new(4,6,4)
-        box.Transparency = 0.6
-        box.Color3 = Color3.fromRGB(255,60,60)
-        box.AlwaysOnTop = true
-        box.ZIndex = 10
-
-        local tracer = Instance.new("LineHandleAdornment", char)
-        tracer.Name = "Tracer"
-        tracer.Adornee = char:WaitForChild("Head")
-        tracer.Length = 0
-        tracer.Thickness = 2.5
-        tracer.Transparency = 0.4
-        tracer.Color3 = Color3.fromRGB(255,100,100)
-
-        local cham = Instance.new("Highlight", char)
-        cham.FillColor = Color3.fromRGB(255,50,50)
-        cham.OutlineColor = Color3.fromRGB(255,255,255)
-        cham.FillTransparency = 0.4
-        cham.OutlineTransparency = 0
-
-        local conn
-        conn = RunService.RenderStepped:Connect(function()
-            if not char or not char.Parent or not char:FindFirstChild("HumanoidRootPart") then
-                conn:Disconnect() return
-            end
-            local rootPos = char.HumanoidRootPart.Position
-            local screen, onScreen = workspace.CurrentCamera:WorldToViewportPoint(rootPos)
-            tracer.Length = onScreen and (screen - Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y)).Magnitude/100 or 0
-            tracer.CFrame = CFrame.new(Vector3.new(workspace.CurrentCamera.CFrame.Position.X, workspace.CurrentCamera.CFrame.Position.Y, workspace.CurrentCamera.CFrame.Position.Z), rootPos)
-        end)
-        table.insert(espCons, conn)
-    end
-    if plr.Character then onChar(plr.Character) end
-    plr.CharacterAdded:Connect(onChar)
-end
-
---// Fullbright + Lighting fuckery
-local function toggleFullbright()
-    cfg.Fullbright = not cfg.Fullbright
-    if cfg.Fullbright then
-        Lighting.Brightness = 2
-        Lighting.GlobalShadows = false
-        Lighting.FogEnd = 9e9
-        for _,v in Lighting:GetDescendants() do
-            if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then v.Enabled = false end
-        end
+    if nearestPrompt then
+        fireproximityprompt(nearestPrompt)
+        game.StarterGui:SetCore("SendNotification", {Title="Einxrxs-scripts!", Text="Stole nearest Brainrot!", Duration=2})
     else
-        Lighting.Brightness = 1
-        Lighting.GlobalShadows = true
+        game.StarterGui:SetCore("SendNotification", {Title="Einxrxs-scripts!", Text="No stealable Brainrot nearby!", Duration=2})
     end
-end
+end)
 
---// UI ──────────────────────────────────────────────────────────
-
-local gui = Instance.new("ScreenGui", lp.PlayerGui) gui.Name = "EinxrxsDark2026" gui.IgnoreGuiInset = true
-
-local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0.32,0,0.68,0)
-main.Position = UDim2.new(0.5,0,0.5,0)
-main.AnchorPoint = Vector2.new(0.5,0.5)
-main.BackgroundColor3 = Color3.fromRGB(8,8,12)
-main.BorderSizePixel = 0
-main.ClipsDescendants = true
-main.Active = true
-main.Draggable = true
-
-local stroke = Instance.new("UIStroke", main) stroke.Color = Color3.fromRGB(120,0,255) stroke.Thickness = 2.5 stroke.Transparency = 0.3
-
-local gradient = Instance.new("UIGradient", main)
-gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(18,18,28)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(8,8,16))
-}
-gradient.Rotation = 45
-
-local corner = Instance.new("UICorner", main) corner.CornerRadius = UDim.new(0,16)
-
--- Title bar
-local titleBar = Instance.new("Frame", main)
-titleBar.Size = UDim2.new(1,0,0,52)
-titleBar.BackgroundColor3 = Color3.fromRGB(14,14,24)
-titleBar.BorderSizePixel = 0
-
-local title = Instance.new("TextLabel", titleBar)
-title.Size = UDim2.new(1,-80,1,0)
-title.Position = UDim2.new(0,12,0,0)
-title.BackgroundTransparency = 1
-title.Text = "EINXRXS • 2026 • DARK REDUX"
-title.TextColor3 = Color3.fromRGB(220,60,255)
-title.Font = Enum.Font.GothamBlack
-title.TextSize = 22
-title.TextXAlignment = Enum.TextXAlignment.Left
-
-local close = Instance.new("TextButton", titleBar)
-close.Size = UDim2.new(0,42,0,42)
-close.Position = UDim2.new(1,-50,0.5,0)
-close.AnchorPoint = Vector2.new(1,0.5)
-close.BackgroundColor3 = Color3.fromRGB(180,40,40)
-close.Text = "✕"
-close.TextColor3 = Color3.new(1,1,1)
-close.Font = Enum.Font.GothamBold
-close.TextSize = 24
-
-local closeCorner = Instance.new("UICorner", close) closeCorner.CornerRadius = UDim.new(1,0)
-
-close.MouseButton1Click:Connect(function() gui:Destroy() end)
-
--- Tabs
-local tabHolder = Instance.new("Frame", main)
-tabHolder.Size = UDim2.new(1,0,0,60)
-tabHolder.Position = UDim2.new(0,0,0,52)
-tabHolder.BackgroundTransparency = 1
-
-local tabs = {"Combat", "Movement", "Visuals", "Misc"}
-local contents = {}
-
-for i,name in ipairs(tabs) do
-    local btn = Instance.new("TextButton", tabHolder)
-    btn.Size = UDim2.new(1/#tabs, -8,1,-8)
-    btn.Position = UDim2.new((i-1)/#tabs, 4,0,4)
-    btn.BackgroundColor3 = Color3.fromRGB(18,18,28)
-    btn.Text = name
-    btn.Font = Enum.Font.GothamBold
-    btn.TextColor3 = Color3.fromRGB(180,180,255)
-    btn.TextSize = 18
-
-    local c = Instance.new("UICorner", btn) c.CornerRadius = UDim.new(0,10)
-
-    local content = Instance.new("ScrollingFrame", main)
-    content.Size = UDim2.new(1,-24,1,-132)
-    content.Position = UDim2.new(0,12,0,122)
-    content.BackgroundTransparency = 1
-    content.ScrollBarThickness = 4
-    content.CanvasSize = UDim2.new(0,0,0,800)
-    content.Visible = (i == 1)
-    contents[name] = content
-
-    btn.MouseButton1Click:Connect(function()
-        for _,v in contents do v.Visible = false end
-        content.Visible = true
-        for _,b in tabHolder:GetChildren() do
-            if b:IsA("TextButton") then
-                TweenService:Create(b, TweenInfo.new(0.3), {BackgroundColor3 = (b.Text==name and Color3.fromRGB(40,20,80) or Color3.fromRGB(18,18,28))}):Play()
+-- Base Tween
+createButton("✨ Tween to Nearest Base", function()
+    local root = getRoot()
+    if not root then return end
+    local targetRoot, minDist = nil, math.huge
+    for _, player in Players:GetPlayers() do
+        if player ~= LocalPlayer and player.Character then
+            local pRoot = player.Character:FindFirstChild("HumanoidRootPart")
+            if pRoot then
+                local dist = (root.Position - pRoot.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    targetRoot = pRoot
+                end
             end
         end
-    end)
-end
-
--- Quick toggle creator
-local function addToggle(parent, name, y, callback, initial)
-    local frame = Instance.new("Frame", parent)
-    frame.Size = UDim2.new(1,0,0,60)
-    frame.Position = UDim2.new(0,0,0,y)
-    frame.BackgroundTransparency = 1
-
-    local lbl = Instance.new("TextLabel", frame)
-    lbl.Size = UDim2.new(0.7,0,1,0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name
-    lbl.TextColor3 = Color3.new(1,1,1)
-    lbl.Font = Enum.Font.GothamSemibold
-    lbl.TextSize = 20
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-
-    local switch = Instance.new("Frame", frame)
-    switch.Size = UDim2.new(0,56,0,32)
-    switch.Position = UDim2.new(1,-70,0.5,0)
-    switch.AnchorPoint = Vector2.new(1,0.5)
-    switch.BackgroundColor3 = initial and Color3.fromRGB(80,220,100) or Color3.fromRGB(80,80,90)
-
-    local ball = Instance.new("Frame", switch)
-    ball.Size = UDim2.new(0,26,0,26)
-    ball.Position = initial and UDim2.new(1,-30,0.5,0) or UDim2.new(0,3,0.5,0)
-    ball.AnchorPoint = Vector2.new(1,0.5)
-    ball.BackgroundColor3 = Color3.new(1,1,1)
-
-    local c1 = Instance.new("UICorner", switch) c1.CornerRadius = UDim.new(1,0)
-    local c2 = Instance.new("UICorner", ball) c2.CornerRadius = UDim.new(1,0)
-
-    local clicked = false
-    local function toggle()
-        clicked = not clicked
-        TweenService:Create(switch, TweenInfo.new(0.25), {BackgroundColor3 = clicked and Color3.fromRGB(80,220,100) or Color3.fromRGB(80,80,90)}):Play()
-        TweenService:Create(ball, TweenInfo.new(0.25), {Position = clicked and UDim2.new(1,-30,0.5,0) or UDim2.new(0,3,0.5,0)}):Play()
-        callback(clicked)
     end
-
-    switch.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then toggle() end end)
-    return toggle
-end
-
--- Combat tab
-local combat = contents["Combat"]
-local y = 10
-addToggle(combat, "Kill Aura", y, function(v) cfg.KillAura = v end, cfg.KillAura) y += 70
-addToggle(combat, "Godmode", y, function(v) cfg.Godmode = v getHumanoid().Health = v and math.huge or 100 end, cfg.Godmode) y += 70
-
--- Movement tab
-local move = contents["Movement"]
-y = 10
-addToggle(move, "Fly", y, function(v) toggleFly() end, cfg.Fly) y += 70
-addToggle(move, "Noclip", y, function(v) cfg.Noclip = v end, cfg.Noclip) y += 70
-addToggle(move, "Infinite Jump", y, function(v) cfg.InfiniteJump = v end, cfg.InfiniteJump) y += 70
-addToggle(move, "Speed Hack", y, function(v) cfg.SpeedHack = v and 50 or 16 getHumanoid().WalkSpeed = cfg.SpeedHack end, cfg.SpeedHack > 16)
-
--- Visuals tab
-local vis = contents["Visuals"]
-y = 10
-addToggle(vis, "ESP Boxes + Tracers", y, function(v) cfg.ESP_Boxes = v cfg.ESP_Tracers = v if v then for _,p in Players:GetPlayers() do createESP(p) end else for _,c in espCons do c:Disconnect() end espCons = {} end end, cfg.ESP_Boxes) y += 70
-addToggle(vis, "Chams", y, function(v) cfg.Chams = v end, cfg.Chams) y += 70
-addToggle(vis, "Fullbright", y, function() toggleFullbright() end, cfg.Fullbright) y += 70
-
--- Misc tab
-local misc = contents["Misc"]
-y = 10
-addToggle(misc, "Anti-Kick", y, function(v) cfg.AntiKick = v end, cfg.AntiKick) y += 70
-
-misc:WaitForChild("TextButton", 1e9) -- placeholder for server hop etc
-
--- Fly update
-RunService:BindToRenderStep("FlyEngine", Enum.RenderPriority.Input.Value + 1, updateFly)
-
--- Noclip
-RunService.Stepped:Connect(function()
-    if cfg.Noclip and lp.Character then
-        for _,p in lp.Character:GetDescendants() do
-            if p:IsA("BasePart") then p.CanCollide = false end
-        end
+    if targetRoot then
+        local tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(root, tweenInfo, {CFrame = targetRoot.CFrame + Vector3.new(math.random(-5,5), 10, math.random(-5,5))})
+        tween:Play()
+        game.StarterGui:SetCore("SendNotification", {Title="Einxrxs-scripts!", Text="Tweened to nearest base!", Duration=2})
+    else
+        game.StarterGui:SetCore("SendNotification", {Title="Einxrxs-scripts!", Text="No nearby bases!", Duration=2})
     end
 end)
 
--- Infinite jump
-UserInputService.JumpRequest:Connect(function()
-    if cfg.InfiniteJump then
-        getHumanoid():ChangeState("Jumping")
-    end
+-- Handle respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    wait(1)
 end)
 
--- Anti kick (basic)
-if cfg.AntiKick then
-    local mt = getrawmetatable(game)
-    local old = mt.__namecall
-    setreadonly(mt, false)
-    mt.__namecall = newcclosure(function(self, ...)
-        local args = {...}
-        local method = getnamecallmethod()
-        if method == "Kick" and self == lp then return end
-        return old(self, ...)
-    end)
-    setreadonly(mt, true)
-end
-
-print("EINXRXS DARK REDUX 2026 LOADED - GO FUCK SHIT UP")
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Einxrxs-scripts! Loaded ✅";
+    Text = "Mobile GUI ready! Toggle bottom-right.";
+    Duration = 4
+})
+print("Einxrxs-scripts! Loaded - Enjoy stealing Brainrots! 🧠")
