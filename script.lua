@@ -34,13 +34,11 @@ local function updateFly()
     local moveDir = Vector3.new()
     
     if not isMobile then
-        -- PC keys
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
     else
-        -- Mobile joystick direction boosted by camera
         moveDir = cam.CFrame.LookVector * LocalPlayer.Character.Humanoid.MoveDirection.Magnitude
     end
     
@@ -86,7 +84,7 @@ RunService.Stepped:Connect(function()
     end
 end)
 
---// Basic ESP (toggleable, simple name tags for now - expand later)
+--// Basic ESP (name tags above heads - visible on mobile)
 local ESP_Connections = {}
 local function toggleESP(enable)
     Settings.ESP_Enabled = enable
@@ -107,7 +105,6 @@ local function toggleESP(enable)
             local head = char.Head
             local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
             if onScreen then
-                -- Simple billboard for mobile (text above head)
                 local tag = head:FindFirstChild("ESPName") or Instance.new("BillboardGui")
                 tag.Name = "ESPName"
                 tag.Adornee = head
@@ -141,7 +138,6 @@ gui.Name = "EinxrxsExploit"
 gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 gui.ResetOnSpawn = false
 
--- Main Frame (draggable)
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 240, 0, 320)
 mainFrame.Position = UDim2.new(0.5, -120, 0.5, -160)
@@ -164,14 +160,12 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 18
 title.Parent = mainFrame
 
--- Tab buttons
 local tabFrame = Instance.new("Frame", mainFrame)
 tabFrame.Size = UDim2.new(1,0,0,35)
 tabFrame.Position = UDim2.new(0,0,0,40)
 tabFrame.BackgroundTransparency = 1
 
 local tabs = {"Main", "Visuals", "Movement"}
-local currentTab = 1
 local tabContents = {}
 
 for i, tabName in ipairs(tabs) do
@@ -196,8 +190,6 @@ for i, tabName in ipairs(tabs) do
     btn.MouseButton1Click:Connect(function()
         for _, c in pairs(tabContents) do c.Visible = false end
         tabContents[tabName].Visible = true
-        currentTab = i
-        -- Highlight active tab
         for _, b in pairs(tabFrame:GetChildren()) do
             if b:IsA("TextButton") then
                 b.BackgroundColor3 = (b.Text == tabName and Color3.fromRGB(60,60,60)) or Color3.fromRGB(45,45,45)
@@ -206,7 +198,6 @@ for i, tabName in ipairs(tabs) do
     end)
 end
 
--- Helper to create big touch button
 local function createButton(parent, text, yPos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9,0,0,50)
@@ -230,19 +221,16 @@ end
 local mainTab = tabContents["Main"]
 createButton(mainTab, "Toggle Fly", 10, function()
     if Settings.FlyEnabled then stopFly() else startFly() end
-    print("Fly: " .. tostring(Settings.FlyEnabled))
 end)
 
 createButton(mainTab, "Toggle Noclip", 70, function()
     Settings.Noclip = not Settings.Noclip
-    print("Noclip: " .. tostring(Settings.Noclip))
 end)
 
 -- Visuals Tab
 local visualsTab = tabContents["Visuals"]
 createButton(visualsTab, "Toggle ESP", 10, function()
     toggleESP(not Settings.ESP_Enabled)
-    print("ESP: " .. tostring(Settings.ESP_Enabled))
 end)
 
 -- Movement Tab (Speed slider)
@@ -259,4 +247,66 @@ speedLabel.Parent = moveTab
 
 local sliderFrame = Instance.new("Frame")
 sliderFrame.Size = UDim2.new(0.9,0,0,40)
-sliderFrame.Position = UDim2.new(0
+sliderFrame.Position = UDim2.new(0.05,0,0,50)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+sliderFrame.Parent = moveTab
+
+local fill = Instance.new("Frame", sliderFrame)
+fill.Size = UDim2.new(0.5,0,1,0)
+fill.BackgroundColor3 = Color3.fromRGB(100,100,255)
+fill.BorderSizePixel = 0
+
+local uicSlider = Instance.new("UICorner", sliderFrame)
+uicSlider.CornerRadius = UDim.new(0,8)
+
+local dragging = false
+sliderFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+    end
+end)
+
+sliderFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local pos = input.Position.X
+        local relX = math.clamp((pos - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(relX, 0, 1, 0)
+        Settings.FlySpeed = math.floor(relX * 200) + 10
+        speedLabel.Text = "Fly Speed: " .. Settings.FlySpeed
+    end
+end)
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0,30,0,30)
+closeBtn.Position = UDim2.new(1,-35,0,5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner", closeBtn)
+closeCorner.CornerRadius = UDim.new(0,8)
+
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+print("Einxrxs Exploit Loaded! Mobile GUI ready - use joystick for fly direction")
+
+-- PC fallback keybinds
+if not isMobile then
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.G then
+            if Settings.FlyEnabled then stopFly() else startFly() end
+        end
+    end)
+end
