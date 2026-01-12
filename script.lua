@@ -1,237 +1,312 @@
--- Einxrxs-scripts! ULTIMATE HUB v3.0 - Full Source (No loadstring) for Steal a BRAINROT
--- PC + Mobile, Top-Right Toggle, Tabs, Sliders, ESP, Instant Steal, Fly, Speed, God Mode, Anti-Kick
+--// Einxrxs Mobile-Friendly Exploit Base 2026 - Enhanced Touch GUI
+--// Features: Draggable GUI with Tabs, Fly (joystick + up/down), Noclip, ESP Toggle, Speed Slider
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local conns = {}
-local espObjects = {}
-local drawing = {}
 
+--// Settings
 local Settings = {
-    Fly = false, FlySpeed = 80,
-    Speed = false, SpeedVal = 90,
+    FlySpeed = 50,
+    ESP_Enabled = false,
     Noclip = false,
-    InfJump = false,
-    GodMode = false,
-    InstantSteal = false,
-    AutoSteal = false,
-    PlayerESP = false,
-    BrainrotESP = false,
-    AntiKick = true
+    FlyEnabled = false
 }
 
--- Notifications
-local function notify(title, text, dur)
-    StarterGui:SetCore("SendNotification", {Title = title or "Einxrxs", Text = text, Duration = dur or 3})
+--// Root
+local function getRoot(char)
+    return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
 end
 
--- Anti-Kick (expanded)
-local function setupAntiCheat()
-    for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-        if v:IsA("RemoteEvent") then
-            local old = v.FireServer
-            v.FireServer = function(self, ...)
-                local args = {...}
-                if args[1] and (tostring(args[1]):lower():find("kick") or tostring(args[1]):lower():find("ban") or
-                                tostring(args[1]):lower():find("x%-15") or tostring(args[1]):lower():find("x%-16")) then
-                    return
-                end
-                return old(self, ...)
-            end
-        end
-    end
-    notify("Anti-Cheat", "Kicks & bans blocked")
-end
-setupAntiCheat()
+--// Fly system
+local flyBV, flyBG
 
--- Helpers
-local function getRoot() return Character:FindFirstChild("HumanoidRootPart") end
-local function getHum() return Character:FindFirstChild("Humanoid") end
-
--- Noclip
-conns.noclip = RunService.Stepped:Connect(function()
-    if Settings.Noclip and Character then
-        for _, p in pairs(Character:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
-        end
-    end
-end)
-
--- Fly
-local function toggleFly(state)
-    Settings.Fly = state
-    if conns.fly then conns.fly:Disconnect() end
-    if state then
-        conns.fly = RunService.Heartbeat:Connect(function()
-            local root = getRoot()
-            if not root then return end
-            local cam = Workspace.CurrentCamera
-            local dir = Vector3.new()
-            if not isMobile then
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.yAxis end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.yAxis end
-            else
-                dir = cam.CFrame.LookVector
-            end
-            root.AssemblyLinearVelocity = dir * Settings.FlySpeed
-        end)
+local function updateFly()
+    local char = LocalPlayer.Character
+    local root = getRoot(char)
+    if not root or not Settings.FlyEnabled then return end
+    
+    local cam = workspace.CurrentCamera
+    local moveDir = Vector3.new()
+    
+    if not isMobile then
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
     else
-        local root = getRoot()
-        if root then root.AssemblyLinearVelocity = Vector3.new(0, root.AssemblyLinearVelocity.Y, 0) end
+        moveDir = cam.CFrame.LookVector * LocalPlayer.Character.Humanoid.MoveDirection.Magnitude
     end
+    
+    flyBV.Velocity = moveDir * Settings.FlySpeed
+    flyBG.CFrame = cam.CFrame
 end
 
--- Speed
-local function toggleSpeed(state)
-    Settings.Speed = state
-    if conns.speed then conns.speed:Disconnect() end
-    if state then
-        conns.speed = RunService.Heartbeat:Connect(function()
-            local hum = getHum()
-            local root = getRoot()
-            if hum and root and hum.MoveDirection.Magnitude > 0 then
-                root.AssemblyLinearVelocity = Vector3.new(hum.MoveDirection.X * Settings.SpeedVal, root.AssemblyLinearVelocity.Y, hum.MoveDirection.Z * Settings.SpeedVal)
-            end
-        end)
-    end
-end
-
--- Inf Jump
-conns.jump = UserInputService.JumpRequest:Connect(function()
-    if Settings.InfJump then
-        local root = getRoot()
-        if root then root.Velocity = Vector3.new(0, 120, 0) end
-    end
-end)
-
--- Instant Steal
-local function instantSteal()
-    local root = getRoot()
+local function startFly()
+    local char = LocalPlayer.Character
+    local root = getRoot(char)
     if not root then return end
-    local nearest = nil
-    local minDist = 80
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("ProximityPrompt") and obj.ActionText:lower():find("steal") then
-            local model = obj.Parent
-            if model.PrimaryPart then
-                local d = (root.Position - model.PrimaryPart.Position).Magnitude
-                if d < minDist then
-                    minDist = d
-                    nearest = obj
-                end
+    
+    Settings.FlyEnabled = true
+    
+    flyBV = Instance.new("BodyVelocity")
+    flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    flyBV.Velocity = Vector3.new()
+    flyBV.Parent = root
+    
+    flyBG = Instance.new("BodyGyro")
+    flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    flyBG.CFrame = root.CFrame
+    flyBG.Parent = root
+    
+    RunService:BindToRenderStep("FlyUpdate", Enum.RenderPriority.Input.Value, updateFly)
+end
+
+local function stopFly()
+    Settings.FlyEnabled = false
+    if flyBV then flyBV:Destroy() flyBV = nil end
+    if flyBG then flyBG:Destroy() flyBG = nil end
+    RunService:UnbindFromRenderStep("FlyUpdate")
+end
+
+--// Noclip
+RunService.Stepped:Connect(function()
+    if Settings.Noclip and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
         end
     end
-    if nearest then
-        local old = root.CFrame
-        root.CFrame = nearest.Parent.PrimaryPart.CFrame * CFrame.new(0,5,0)
-        task.wait(0.08)
-        fireproximityprompt(nearest)
-        task.wait(0.15)
-        root.CFrame = old
-        notify("Steal", "Success!")
+end)
+
+--// Basic ESP (name tags above heads - visible on mobile)
+local ESP_Connections = {}
+local function toggleESP(enable)
+    Settings.ESP_Enabled = enable
+    
+    if not enable then
+        for _, conn in pairs(ESP_Connections) do conn:Disconnect() end
+        ESP_Connections = {}
+        return
+    end
+    
+    local function addESP(plr)
+        if plr == LocalPlayer then return end
+        
+        local conn = RunService.RenderStepped:Connect(function()
+            local char = plr.Character
+            if not char or not char:FindFirstChild("Head") then return end
+            
+            local head = char.Head
+            local _, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local tag = head:FindFirstChild("ESPName") or Instance.new("BillboardGui")
+                tag.Name = "ESPName"
+                tag.Adornee = head
+                tag.Size = UDim2.new(0, 200, 0, 50)
+                tag.StudsOffset = Vector3.new(0, 3, 0)
+                tag.AlwaysOnTop = true
+                tag.Parent = head
+                
+                local label = tag:FindFirstChild("Label") or Instance.new("TextLabel", tag)
+                label.Size = UDim2.new(1,0,1,0)
+                label.BackgroundTransparency = 1
+                label.Text = plr.Name
+                label.TextColor3 = Color3.new(1,0,0)
+                label.TextScaled = true
+                label.Font = Enum.Font.SourceSansBold
+                label.Name = "Label"
+            end
+        end)
+        table.insert(ESP_Connections, conn)
+    end
+    
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Character then addESP(plr) end
+        plr.CharacterAdded:Connect(function() addESP(plr) end)
     end
 end
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EinxrxsHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+--// ======================= NICE MOBILE GUI =======================
+local gui = Instance.new("ScreenGui")
+gui.Name = "EinxrxsExploit"
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
 
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 70, 0, 70)
-ToggleBtn.Position = UDim2.new(1, -85, 0, 15)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(25,25,35)
-ToggleBtn.Text = "🧠"
-ToggleBtn.TextScaled = true
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Parent = ScreenGui
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 240, 0, 320)
+mainFrame.Position = UDim2.new(0.5, -120, 0.5, -160)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = gui
 
-local ToggleCorner = Instance.new("UICorner", ToggleBtn)
-ToggleCorner.CornerRadius = UDim.new(1,0)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainFrame
 
-local ToggleStroke = Instance.new("UIStroke", ToggleBtn)
-ToggleStroke.Color = Color3.fromRGB(120,180,255)
-ToggleStroke.Thickness = 3
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,40)
+title.BackgroundColor3 = Color3.fromRGB(35,35,35)
+title.Text = "Einxrxs Exploit - Mobile"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.Parent = mainFrame
 
--- Main Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 380, 0, 520)
-MainFrame.Position = UDim2.new(0.5, -190, 0.5, -260)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,30)
-MainFrame.Visible = false
-MainFrame.Parent = ScreenGui
+local tabFrame = Instance.new("Frame", mainFrame)
+tabFrame.Size = UDim2.new(1,0,0,35)
+tabFrame.Position = UDim2.new(0,0,0,40)
+tabFrame.BackgroundTransparency = 1
 
-local FrameCorner = Instance.new("UICorner", MainFrame)
-FrameCorner.CornerRadius = UDim.new(0, 16)
+local tabs = {"Main", "Visuals", "Movement"}
+local tabContents = {}
 
--- Title
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1,0,0,50)
-Title.BackgroundColor3 = Color3.fromRGB(30,30,45)
-Title.Text = "Einxrxs Hub v3.0"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.TextScaled = true
-Title.Font = Enum.Font.GothamBold
+for i, tabName in ipairs(tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1/#tabs, -4, 1, -4)
+    btn.Position = UDim2.new((i-1)/#tabs, 2, 0, 2)
+    btn.BackgroundColor3 = (i==1 and Color3.fromRGB(60,60,60)) or Color3.fromRGB(45,45,45)
+    btn.Text = tabName
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 14
+    btn.Parent = tabFrame
+    
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1,0,1,-75)
+    content.Position = UDim2.new(0,0,0,75)
+    content.BackgroundTransparency = 1
+    content.Visible = (i==1)
+    content.Parent = mainFrame
+    tabContents[tabName] = content
+    
+    btn.MouseButton1Click:Connect(function()
+        for _, c in pairs(tabContents) do c.Visible = false end
+        tabContents[tabName].Visible = true
+        for _, b in pairs(tabFrame:GetChildren()) do
+            if b:IsA("TextButton") then
+                b.BackgroundColor3 = (b.Text == tabName and Color3.fromRGB(60,60,60)) or Color3.fromRGB(45,45,45)
+            end
+        end
+    end)
+end
 
--- Close
-local Close = Instance.new("TextButton", MainFrame)
-Close.Size = UDim2.new(0,40,0,40)
-Close.Position = UDim2.new(1,-45,0,5)
-Close.BackgroundColor3 = Color3.fromRGB(220,50,50)
-Close.Text = "X"
-Close.TextColor3 = Color3.new(1,1,1)
-Close.TextScaled = true
-Close.Font = Enum.Font.GothamBold
+local function createButton(parent, text, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9,0,0,50)
+    btn.Position = UDim2.new(0.05,0,0,yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(55,55,55)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 18
+    btn.TextWrapped = true
+    btn.Parent = parent
+    
+    local uic = Instance.new("UICorner", btn)
+    uic.CornerRadius = UDim.new(0,8)
+    
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
 
-Close.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
+-- Main Tab
+local mainTab = tabContents["Main"]
+createButton(mainTab, "Toggle Fly", 10, function()
+    if Settings.FlyEnabled then stopFly() else startFly() end
 end)
 
--- Toggle button click
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
+createButton(mainTab, "Toggle Noclip", 70, function()
+    Settings.Noclip = not Settings.Noclip
 end)
 
--- Draggable
-local dragging, dragInput, dragStart, startPos
-Title.InputBegan:Connect(function(input)
+-- Visuals Tab
+local visualsTab = tabContents["Visuals"]
+createButton(visualsTab, "Toggle ESP", 10, function()
+    toggleESP(not Settings.ESP_Enabled)
+end)
+
+-- Movement Tab (Speed slider)
+local moveTab = tabContents["Movement"]
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0.9,0,0,30)
+speedLabel.Position = UDim2.new(0.05,0,0,10)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Fly Speed: " .. Settings.FlySpeed
+speedLabel.TextColor3 = Color3.new(1,1,1)
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 16
+speedLabel.Parent = moveTab
+
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Size = UDim2.new(0.9,0,0,40)
+sliderFrame.Position = UDim2.new(0.05,0,0,50)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+sliderFrame.Parent = moveTab
+
+local fill = Instance.new("Frame", sliderFrame)
+fill.Size = UDim2.new(0.5,0,1,0)
+fill.BackgroundColor3 = Color3.fromRGB(100,100,255)
+fill.BorderSizePixel = 0
+
+local uicSlider = Instance.new("UICorner", sliderFrame)
+uicSlider.CornerRadius = UDim.new(0,8)
+
+local dragging = false
+sliderFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+    end
+end)
+
+sliderFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        local pos = input.Position.X
+        local relX = math.clamp((pos - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
+        fill.Size = UDim2.new(relX, 0, 1, 0)
+        Settings.FlySpeed = math.floor(relX * 200) + 10
+        speedLabel.Text = "Fly Speed: " .. Settings.FlySpeed
     end
 end)
 
--- Add more features here (buttons, toggles, sliders) as needed
-notify("Hub Loaded", "Toggle top-right brain icon", 5)
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0,30,0,30)
+closeBtn.Position = UDim2.new(1,-35,0,5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.Parent = mainFrame
 
--- Respawn handler
-LocalPlayer.CharacterAdded:Connect(function(new)
-    Character = new
-    task.wait(0.8)
+local closeCorner = Instance.new("UICorner", closeBtn)
+closeCorner.CornerRadius = UDim.new(0,8)
+
+closeBtn.MouseButton1Click:Connect(function()
+    gui:Destroy()
 end)
+
+print("Einxrxs Exploit Loaded! Mobile GUI ready - use joystick for fly direction")
+
+-- PC fallback keybinds
+if not isMobile then
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.G then
+            if Settings.FlyEnabled then stopFly() else startFly() end
+        end
+    end)
+end
