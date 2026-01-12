@@ -1,6 +1,5 @@
-
 --// Einxrxs Mobile-Friendly Exploit Base 2026 - Enhanced Touch GUI
---// Features: Draggable GUI with Tabs, Fly (joystick + up/down), Noclip, ESP Toggle, Speed Slider
+--// Features: Draggable GUI with Tabs, Fly (joystick + up/down), Noclip, ESP Toggle, Speed Slider, Auto Steal, Instant Proximity Prompts, Anti Ragdoll, Low Gravity
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -15,7 +14,11 @@ local Settings = {
     FlySpeed = 50,
     ESP_Enabled = false,
     Noclip = false,
-    FlyEnabled = false
+    FlyEnabled = false,
+    AutoSteal = false,
+    InstantPrompts = false,
+    AntiRagdoll = false,
+    LowGravity = false
 }
 
 --// Root
@@ -133,6 +136,95 @@ local function toggleESP(enable)
     end
 end
 
+--// Auto Steal (adapted from other scripts)
+local autoStealConnection
+local function toggleAutoSteal(enable)
+    Settings.AutoSteal = enable
+    if enable then
+        autoStealConnection = workspace.ChildAdded:Connect(function(c)
+            if c:IsA("Model") and c:FindFirstChild("RootPart") and c.RootPart:FindFirstChildWhichIsA("WeldConstraint") and c.RootPart:FindFirstChildWhichIsA("WeldConstraint").Part0 == LocalPlayer.Character.HumanoidRootPart then
+                task.wait(2.5) -- Delay to avoid anticheat
+                if c.Parent == workspace then
+                    -- Fire steal remote (adapted from common script remotes)
+                    local net = game.ReplicatedStorage:FindFirstChild("Packages") and game.ReplicatedStorage.Packages:FindFirstChild("Net")
+                    if net and net:FindFirstChild("RE/StealService/DeliverySteal") then
+                        net["RE/StealService/DeliverySteal"]:FireServer()
+                    elseif net and net:FindFirstChild("RE/3891348e-5b69-47f3-af95-20012defb3fe") then
+                        net["RE/3891348e-5b69-47f3-af95-20012defb3fe"]:FireServer("e280cd99-2836-4a9c-8b9e-59e5750aab98")
+                    else
+                        print("Steal remote not found!")
+                    end
+                end
+            end
+        end)
+    else
+        if autoStealConnection then autoStealConnection:Disconnect() autoStealConnection = nil end
+    end
+end
+
+--// Instant Proximity Prompts
+local promptConnections = {}
+local function toggleInstantPrompts(enable)
+    Settings.InstantPrompts = enable
+    if enable then
+        -- Find all existing prompts
+        for _, desc in pairs(workspace:GetDescendants()) do
+            if desc:IsA("ProximityPrompt") then
+                desc.HoldDuration = 0
+                table.insert(promptConnections, desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
+                    desc.HoldDuration = 0
+                end))
+            end
+        end
+        -- Listen for new prompts
+        table.insert(promptConnections, workspace.DescendantAdded:Connect(function(desc)
+            if desc:IsA("ProximityPrompt") then
+                desc.HoldDuration = 0
+                table.insert(promptConnections, desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
+                    desc.HoldDuration = 0
+                end))
+            end
+        end))
+    else
+        for _, conn in pairs(promptConnections) do conn:Disconnect() end
+        promptConnections = {}
+    end
+end
+
+--// Anti Ragdoll
+local antiRagdollConnection
+local function toggleAntiRagdoll(enable)
+    Settings.AntiRagdoll = enable
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        if enable then
+            antiRagdollConnection = hum.StateChanged:Connect(function(old, new)
+                if new == Enum.HumanoidStateType.Ragdoll then
+                    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end)
+        else
+            if antiRagdollConnection then antiRagdollConnection:Disconnect() antiRagdollConnection = nil end
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if Settings.AntiRagdoll then
+        toggleAntiRagdoll(true)
+    end
+end)
+
+--// Low Gravity
+local function toggleLowGravity(enable)
+    Settings.LowGravity = enable
+    if enable then
+        workspace.Gravity = 50 -- Low gravity for better jumps/floating
+    else
+        workspace.Gravity = 196.2 -- Normal
+    end
+end
+
 --// ======================= NICE MOBILE GUI =======================
 local gui = Instance.new("ScreenGui")
 gui.Name = "EinxrxsExploit"
@@ -228,6 +320,18 @@ createButton(mainTab, "Toggle Noclip", 70, function()
     Settings.Noclip = not Settings.Noclip
 end)
 
+createButton(mainTab, "Toggle Auto Steal", 130, function()
+    toggleAutoSteal(not Settings.AutoSteal)
+end)
+
+createButton(mainTab, "Toggle Instant Prompts", 190, function()
+    toggleInstantPrompts(not Settings.InstantPrompts)
+end)
+
+createButton(mainTab, "Toggle Anti Ragdoll", 250, function()
+    toggleAntiRagdoll(not Settings.AntiRagdoll)
+end)
+
 -- Visuals Tab
 local visualsTab = tabContents["Visuals"]
 createButton(visualsTab, "Toggle ESP", 10, function()
@@ -257,57 +361,4 @@ fill.Size = UDim2.new(0.5,0,1,0)
 fill.BackgroundColor3 = Color3.fromRGB(100,100,255)
 fill.BorderSizePixel = 0
 
-local uicSlider = Instance.new("UICorner", sliderFrame)
-uicSlider.CornerRadius = UDim.new(0,8)
-
-local dragging = false
-sliderFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-    end
-end)
-
-sliderFrame.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local pos = input.Position.X
-        local relX = math.clamp((pos - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
-        fill.Size = UDim2.new(relX, 0, 1, 0)
-        Settings.FlySpeed = math.floor(relX * 200) + 10
-        speedLabel.Text = "Fly Speed: " .. Settings.FlySpeed
-    end
-end)
-
--- Close button
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0,30,0,30)
-closeBtn.Position = UDim2.new(1,-35,0,5)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.new(1,1,1)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 18
-closeBtn.Parent = mainFrame
-
-local closeCorner = Instance.new("UICorner", closeBtn)
-closeCorner.CornerRadius = UDim.new(0,8)
-
-closeBtn.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
-
-print("Einxrxs Exploit Loaded! Mobile GUI ready - use joystick for fly direction")
-
--- PC fallback keybinds
-if not isMobile then
-    UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.G then
-            if Settings.FlyEnabled then stopFly() else startFly() end
-        end
-    end)
-end
+local uicSlider = Instance.new("UICorner", sliderFrame
