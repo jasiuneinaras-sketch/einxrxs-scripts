@@ -1,5 +1,5 @@
 --// Einxrxs Mobile-Friendly Exploit Base 2026 - Enhanced Touch GUI
---// Features: Draggable GUI with Tabs, Fly (joystick + up/down), Noclip, ESP Toggle, Speed Slider, Auto Steal, Instant Proximity Prompts, Anti Ragdoll, Low Gravity, Auto Collect
+--// Features: Fly, Noclip, ESP, Speed Slider, Auto Steal (tween to Brainrot → steal → tween back), Instant Prompts, Auto Collect
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,8 +17,6 @@ local Settings = {
     FlyEnabled = false,
     AutoSteal = false,
     InstantPrompts = false,
-    AntiRagdoll = false,
-    LowGravity = false,
     AutoCollect = false
 }
 
@@ -27,7 +25,7 @@ local function getRoot(char)
     return char and (char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso"))
 end
 
---// Fly system
+--// Fly system (unchanged)
 local flyBV, flyBG
 
 local function updateFly()
@@ -78,7 +76,7 @@ local function stopFly()
     RunService:UnbindFromRenderStep("FlyUpdate")
 end
 
---// Noclip
+--// Noclip toggle
 local noclipConnection
 local function toggleNoclip(enable)
     Settings.Noclip = enable
@@ -97,7 +95,7 @@ local function toggleNoclip(enable)
     end
 end
 
---// Basic ESP (name tags above heads - visible on mobile)
+--// Basic ESP (with cleanup)
 local ESP_Connections = {}
 local function toggleESP(enable)
     Settings.ESP_Enabled = enable
@@ -149,61 +147,100 @@ local function toggleESP(enable)
         if plr.Character then addESP(plr) end
         plr.CharacterAdded:Connect(function() addESP(plr) end)
     end
-    Players.PlayerAdded:Connect(function(plr)
-        addESP(plr)
-        plr.CharacterAdded:Connect(function() addESP(plr) end)
-    end)
 end
 
---// Instant Steal (general tools and accessories)
-local function instantSteal()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local backpack = plr:FindFirstChild("Backpack")
-            if backpack then
-                for _, tool in pairs(backpack:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        tool.Parent = LocalPlayer.Backpack
-                    end
-                end
-            end
-            for _, item in pairs(plr.Character:GetChildren()) do
-                if item:IsA("Tool") or item:IsA("Accessory") then
-                    item.Parent = LocalPlayer.Backpack or LocalPlayer.Character
-                end
+--// Instant Proximity Prompts (0 hold time, very common in scripts)
+local promptConnections = {}
+local function toggleInstantPrompts(enable)
+    Settings.InstantPrompts = enable
+    if enable then
+        for _, desc in pairs(workspace:GetDescendants()) do
+            if desc:IsA("ProximityPrompt") then
+                desc.HoldDuration = 0
+                table.insert(promptConnections, desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
+                    desc.HoldDuration = 0
+                end))
             end
         end
+        table.insert(promptConnections, workspace.DescendantAdded:Connect(function(desc)
+            if desc:IsA("ProximityPrompt") then
+                desc.HoldDuration = 0
+                table.insert(promptConnections, desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
+                    desc.HoldDuration = 0
+                end))
+            end
+        end))
+    else
+        for _, conn in pairs(promptConnections) do conn:Disconnect() end
+        promptConnections = {}
     end
-    print("Instant Steal executed!")
 end
 
---// Auto Steal (repeat instant steal)
+--// Auto Steal - Tween to Brainrot → steal → tween back (TikTok style)
 local autoStealConnection
+local function tweenToPosition(targetPos, duration)
+    local root = getRoot(LocalPlayer.Character)
+    if not root then return end
+    
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
 local function toggleAutoSteal(enable)
     Settings.AutoSteal = enable
     if enable then
         autoStealConnection = RunService.Heartbeat:Connect(function()
-            instantSteal()
-            task.wait(1)
+            local root = getRoot(LocalPlayer.Character)
+            if not root then return end
+            
+            for _, model in pairs(workspace:GetChildren()) do
+                if model:IsA("Model") and (model.Name:lower():find("brainrot") or model:FindFirstChild("BrainrotPart")) then
+                    local brainPart = model:FindFirstChildWhichIsA("BasePart") or model:FindFirstChild("RootPart")
+                    if brainPart and brainPart:FindFirstChildOfClass("ProximityPrompt") then  -- Detect steal prompt
+                        local dist = (brainPart.Position - root.Position).Magnitude
+                        if dist < 100 and dist > 5 then  -- Not too close/far
+                            print("Found Brainrot to steal: " .. model.Name .. " 🧠💀")
+                            
+                            -- Tween to Brainrot
+                            tweenToPosition(brainPart.Position + Vector3.new(0, 5, 0), 1.5)  -- 1.5s approach
+                            
+                            -- Trigger steal (instant prompt should handle it)
+                            fireproximityprompt(brainPart:FindFirstChildOfClass("ProximityPrompt"))
+                            
+                            task.wait(0.5)  -- Small delay after steal
+                            
+                            -- Tween back (to sky or safe spot)
+                            tweenToPosition(root.Position + Vector3.new(0, 50, 0), 1)  -- Quick escape up
+                            
+                            task.wait(math.random(2, 4))  -- Cooldown
+                        end
+                    end
+                end
+            end
         end)
     else
         if autoStealConnection then autoStealConnection:Disconnect() autoStealConnection = nil end
     end
 end
 
---// Auto Collect (touch all collectibles)
+--// Auto Collect (touch cash parts on your Brainrots)
 local autoCollectConnection
 local function toggleAutoCollect(enable)
     Settings.AutoCollect = enable
     if enable then
         autoCollectConnection = RunService.Heartbeat:Connect(function()
             local root = getRoot(LocalPlayer.Character)
-            if root then
-                for _, v in pairs(workspace:GetChildren()) do
-                    if v:IsA("BasePart") and v:FindFirstChildWhichIsA("TouchInterest") then
-                        firetouchinterest(root, v, 0)
-                        task.wait(0.1)
-                        firetouchinterest(root, v, 1)
+            if not root then return end
+            
+            for _, model in pairs(workspace:GetChildren()) do
+                if model:IsA("Model") and model:FindFirstChild("CashPart") then
+                    local cash = model.CashPart
+                    if (cash.Position - root.Position).Magnitude < 25 then
+                        firetouchinterest(root, cash, 0)
+                        task.wait(0.05)
+                        firetouchinterest(root, cash, 1)
                     end
                 end
             end
@@ -213,68 +250,11 @@ local function toggleAutoCollect(enable)
     end
 end
 
---// Instant Proximity Prompts
-local promptConnections = {}
-local function toggleInstantPrompts(enable)
-    Settings.InstantPrompts = enable
-    if enable then
-        for _, desc in pairs(workspace:GetDescendants()) do
-            if desc:IsA("ProximityPrompt") then
-                desc.HoldDuration = 0
-                local conn = desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
-                    desc.HoldDuration = 0
-                end)
-                table.insert(promptConnections, conn)
-            end
-        end
-        local addedConn = workspace.DescendantAdded:Connect(function(desc)
-            if desc:IsA("ProximityPrompt") then
-                desc.HoldDuration = 0
-                local conn = desc:GetPropertyChangedSignal("HoldDuration"):Connect(function()
-                    desc.HoldDuration = 0
-                end)
-                table.insert(promptConnections, conn)
-            end
-        end)
-        table.insert(promptConnections, addedConn)
-    else
-        for _, conn in pairs(promptConnections) do conn:Disconnect() end
-        promptConnections = {}
-    end
-end
-
---// Anti Ragdoll
-local antiRagdollConnection
-local function toggleAntiRagdoll(enable)
-    Settings.AntiRagdoll = enable
-    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if hum then
-        if enable then
-            antiRagdollConnection = hum.StateChanged:Connect(function(_, new)
-                if new == Enum.HumanoidStateType.Ragdoll then
-                    hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-                end
-            end)
-        else
-            if antiRagdollConnection then antiRagdollConnection:Disconnect() antiRagdollConnection = nil end
-        end
-    end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if Settings.AntiRagdoll then
-        toggleAntiRagdoll(true)
-    end
-    if Settings.Noclip then
-        toggleNoclip(true)
-    end
+--// Character respawn fix
+LocalPlayer.CharacterAdded:Connect(function()
+    if Settings.Noclip then toggleNoclip(true) end
+    if Settings.FlyEnabled then startFly() end  -- Re-apply fly if was on
 end)
-
---// Low Gravity
-local function toggleLowGravity(enable)
-    Settings.LowGravity = enable
-    workspace.Gravity = enable and 50 or 196.2
-end
 
 --// ======================= NICE MOBILE GUI =======================
 local gui = Instance.new("ScreenGui")
@@ -283,8 +263,8 @@ gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 gui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 240, 0, 400) -- Increased height to fit all buttons
-mainFrame.Position = UDim2.new(0.5, -120, 0.5, -200)
+mainFrame.Size = UDim2.new(0, 240, 0, 420)  -- Tall enough for all buttons
+mainFrame.Position = UDim2.new(0.5, -120, 0.5, -210)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -371,7 +351,7 @@ createButton(mainTab, "Toggle Noclip", 70, function()
     toggleNoclip(not Settings.Noclip)
 end)
 
-createButton(mainTab, "Toggle Auto Steal", 130, function()
+createButton(mainTab, "Toggle Auto Steal 🧠", 130, function()
     toggleAutoSteal(not Settings.AutoSteal)
 end)
 
@@ -379,11 +359,7 @@ createButton(mainTab, "Toggle Instant Prompts", 190, function()
     toggleInstantPrompts(not Settings.InstantPrompts)
 end)
 
-createButton(mainTab, "Toggle Anti Ragdoll", 250, function()
-    toggleAntiRagdoll(not Settings.AntiRagdoll)
-end)
-
-createButton(mainTab, "Toggle Auto Collect", 310, function()
+createButton(mainTab, "Toggle Auto Collect 💰", 250, function()
     toggleAutoCollect(not Settings.AutoCollect)
 end)
 
@@ -442,10 +418,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-createButton(moveTab, "Toggle Low Gravity", 100, function()
-    toggleLowGravity(not Settings.LowGravity)
-end)
-
 -- Close button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0,30,0,30)
@@ -464,9 +436,9 @@ closeBtn.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
 
-print("Einxrxs Exploit Loaded! Mobile GUI ready - use joystick for fly direction")
+print("Einxrxs Exploit Loaded! Now with real Auto Steal (tween to Brainrot → steal → escape) 🧠💀 Use joystick for fly!")
 
--- PC fallback keybinds
+-- PC fallback
 if not isMobile then
     UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == Enum.KeyCode.G then
